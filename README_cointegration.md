@@ -176,7 +176,7 @@ For each pair of symbols $(i,j)$ in the candidate list:
    $p_{i,t} = \alpha_{ij} + \beta_{ij} p_{j,t} + \varepsilon_{ij,t}$
    via ordinary least squares, obtaining $\hat{\alpha}_{ij}$ and $\hat{\beta}_{ij}$.
 3. Construct the spread
-   $Z_{ij,t} = p_{i,t} - \left(\hat{\alpha}*{ij} + \hat{\beta}*{ij} p_{j,t}\right).$
+   $Z_{ij,t} = p_{i,t} - \left(\hat{\alpha}*{ij} + \hat{\beta}*{ij} p_{j,t}\right)$.
 4. Apply the ADF test to $\{Z_{ij,t}\}$ with the null hypothesis of a unit root. If the $p$-value is below `--alpha`, treat the pair as cointegrated.
 5. For cointegrated pairs, estimate an approximate half-life of mean reversion by fitting an AR(1) model to the demeaned spread and mapping the estimated coefficient to a half-life.
 
