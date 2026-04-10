@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Correlation & Cointegration Viewer</title>
+  <style>
+    body {
+      font-family: Segoe UI, Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f6f8fb;
+      color: #1f2937;
+    }
+    h1 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 24px;
+    }
+    .panel {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .controls {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    select {
+      min-width: 240px;
+      padding: 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .meta {
+      font-size: 13px;
+      color: #4b5563;
+      display: inline-block;
+      width: 280px;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+    .status {
+      font-size: 14px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .toggle-btn {
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      min-width: 180px;
+      text-align: center;
+    }
+    .toggle-btn.active {
+      background: #0f172a;
+      color: #ffffff;
+      border-color: #0f172a;
+    }
+    .controls-panel {
+      width: fit-content;
+      max-width: 100%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .table-wrap {
+      overflow: visible;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #ffffff;
+      width: fit-content;
+      margin: 0 auto;
+    }
+    table {
+      width: max-content;
+      border-collapse: collapse;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      z-index: 2;
+      text-align: left;
+      font-size: 13px;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 10px 10px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    thead th::after {
+      content: attr(data-sort);
+      display: inline-block;
+      margin-left: 4px;
+      width: 12px;
+      text-align: center;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1;
+    }
+    tbody td {
+      border-bottom: 1px solid #f1f5f9;
+      padding: 8px 10px;
+      font-size: 13px;
+      white-space: nowrap;
+      text-align: left;
+    }
+    tbody tr:hover {
+      background: #f8fbff;
+    }
+    .label-not {
+      display: inline-block;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+      border-radius: 999px;
+      padding: 1px 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <h1>Correlation & Cointegration Viewer</h1>
+  <div class="panel controls controls-panel">
+    <label for="symbolSelect"><strong>Asset symbol</strong></label>
+    <select id="symbolSelect"></select>
+    <button id="toggleCointegrated" class="toggle-btn" type="button">Hide non-cointegrated</button>
+    <span id="status" class="status">Loading data...</span>
+    <span id="meta" class="meta"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th data-key="asset2">Paired Asset</th>
+          <th data-key="correlation">ρ (Pearson)</th>
+          <th data-key="beta">β</th>
+          <th data-key="alpha">α</th>
+          <th data-key="adf_p_spread">p<sub>ADF</sub></th>
+          <th data-key="n_obs">N</th>
+          <th data-key="half_life">t<sub>1/2</sub></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const symbolSelect = document.getElementById('symbolSelect');
+    const statusEl = document.getElementById('status');
+    const metaEl = document.getElementById('meta');
+    const tableBody = document.querySelector('#resultTable tbody');
+    const tableHeaders = document.querySelectorAll('#resultTable thead th');
+    const toggleCointegratedBtn = document.getElementById('toggleCointegrated');
+
+    const CORR_CSV = 'output/correlation_matrix.csv';
+    const CINT_CSV = 'output/cointegrated_pairs.csv';
+
+    let symbols = [];
+    let matrixRows = new Map();
+    let cointegrationMap = new Map();
+    let currentRows = [];
+    let showCointegratedOnly = false;
+    let sortState = { key: 'asset2', asc: true };
+
+    function parseCsvLine(line) {
+      const values = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (c === ',' && !inQuotes) {
+          values.push(current);
+          current = '';
+        } else {
+          current += c;
+        }
+      }
+      values.push(current);
+      return values;
+    }
+
+    function normalizeSymbol(raw) {
+      return raw.replace(/_D1_\d{8}_\d{8}$/, '');
+    }
+
+    function pairKey(a, b) {
+      return `${a}||${b}`;
+    }
+
+    function toNumber(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function formatNumber(v, digits = 6) {
+      if (v === null || v === undefined || Number.isNaN(v)) return '';
+      return Number(v).toFixed(digits);
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function renderTable(rows) {
+      const html = rows.map(r => {
+        const notC = r.beta === null;
+        return `<tr>
+          <td>${r.asset2}</td>
+          <td>${formatNumber(r.correlation, 6)}</td>
+          <td>${notC ? '<span class="label-not">Not cointegrated</span>' : formatNumber(r.beta, 6)}</td>
+          <td>${notC ? '' : formatNumber(r.alpha, 6)}</td>
+          <td>${notC ? '' : formatNumber(r.adf_p_spread, 6)}</td>
+          <td>${notC ? '' : r.n_obs}</td>
+          <td>${notC ? '' : formatNumber(r.half_life, 6)}</td>
+        </tr>`;
+      }).join('');
+      tableBody.innerHTML = html;
+    }
+
+    function getVisibleRows() {
+      if (!showCointegratedOnly) return currentRows;
+      return currentRows.filter(r => r.beta !== null);
+    }
+
+    function updateToggleButton() {
+      toggleCointegratedBtn.classList.toggle('active', showCointegratedOnly);
+      toggleCointegratedBtn.textContent = showCointegratedOnly ? 'Show all pairs' : 'Hide non-cointegrated';
+    }
+
+    function refreshView() {
+      const visibleRows = getVisibleRows();
+      renderTable(visibleRows);
+      const cointegratedCount = currentRows.filter(r => r.beta !== null).length;
+      metaEl.textContent = `${visibleRows.length} shown · ${currentRows.length} total · ${cointegratedCount} cointegrated`;
+    }
+
+    function sortRows() {
+      const key = sortState.key;
+      const asc = sortState.asc ? 1 : -1;
+      currentRows.sort((a, b) => {
+        const av = a[key];
+        const bv = b[key];
+        const aNull = av === null || av === '';
+        const bNull = bv === null || bv === '';
+        if (aNull && bNull) return 0;
+        if (aNull) return 1;
+        if (bNull) return -1;
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * asc;
+        return String(av).localeCompare(String(bv)) * asc;
+      });
+      refreshView();
+    }
+
+    function setHeaderLabels() {
+      tableHeaders.forEach(th => {
+        const key = th.dataset.key;
+        if (key === sortState.key) {
+          th.dataset.sort = sortState.asc ? '↑' : '↓';
+        } else {
+          th.dataset.sort = '';
+        }
+      });
+    }
+
+    function buildRowsForSymbol(selected) {
+      const rawRow = matrixRows.get(selected);
+      if (!rawRow) return [];
+      return symbols.map((asset2, idx) => {
+        const corr = toNumber(rawRow[idx]);
+        const direct = cointegrationMap.get(pairKey(selected, asset2));
+        const reverse = cointegrationMap.get(pairKey(asset2, selected));
+        const cg = direct || reverse || null;
+        if (!cg) {
+          return {
+            asset2,
+            correlation: corr,
+            beta: null,
+            alpha: null,
+            adf_p_spread: null,
+            n_obs: null,
+            half_life: null
+          };
+        }
+        return {
+          asset2,
+          correlation: corr,
+          beta: cg.beta,
+          alpha: cg.alpha,
+          adf_p_spread: cg.adf_p_spread,
+          n_obs: cg.n_obs,
+          half_life: cg.half_life
+        };
+      });
+    }
+
+    function onSelectSymbol() {
+      const selected = symbolSelect.value;
+      currentRows = buildRowsForSymbol(selected);
+      sortRows();
+      setHeaderLabels();
+    }
+
+    async function loadData() {
+      try {
+        setStatus('Loading correlation matrix...');
+        const corrText = await fetch(CORR_CSV).then(r => {
+          if (!r.ok) throw new Error(`Cannot load ${CORR_CSV}`);
+          return r.text();
+        });
+
+        const corrLines = corrText.split(/\r?\n/).filter(Boolean);
+        if (corrLines.length < 2) throw new Error('Correlation matrix is empty');
+        const header = parseCsvLine(corrLines[0]).slice(1);
+        symbols = header.map(normalizeSymbol);
+
+        for (let i = 1; i < corrLines.length; i++) {
+          const row = parseCsvLine(corrLines[i]);
+          if (!row.length) continue;
+          const asset1 = normalizeSymbol(row[0]);
+          matrixRows.set(asset1, row.slice(1));
+        }
+
+        setStatus('Loading cointegrated pairs...');
+        const cintText = await fetch(CINT_CSV).then(r => {
+          if (!r.ok) throw new Error(`Cannot load ${CINT_CSV}`);
+          return r.text();
+        });
+
+        const cintLines = cintText.split(/\r?\n/).filter(Boolean);
+        for (let i = 1; i < cintLines.length; i++) {
+          const row = parseCsvLine(cintLines[i]);
+          if (row.length < 7) continue;
+          const asset1 = row[0];
+          const asset2 = row[1];
+          cointegrationMap.set(pairKey(asset1, asset2), {
+            beta: toNumber(row[2]),
+            alpha: toNumber(row[3]),
+            adf_p_spread: toNumber(row[4]),
+            n_obs: toNumber(row[5]),
+            half_life: toNumber(row[6])
+          });
+        }
+
+        symbolSelect.innerHTML = symbols.map(s => `<option value="${s}">${s}</option>`).join('');
+        symbolSelect.value = symbols[0];
+        onSelectSymbol();
+        setStatus('Ready');
+      } catch (err) {
+        setStatus(`Error: ${err.message}`);
+      }
+    }
+
+    tableHeaders.forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.key;
+        if (!key) return;
+        if (sortState.key === key) {
+          sortState.asc = !sortState.asc;
+        } else {
+          sortState.key = key;
+          sortState.asc = true;
+        }
+        sortRows();
+        setHeaderLabels();
+      });
+    });
+
+    toggleCointegratedBtn.addEventListener('click', () => {
+      showCointegratedOnly = !showCointegratedOnly;
+      updateToggleButton();
+      refreshView();
+    });
+
+    symbolSelect.addEventListener('change', onSelectSymbol);
+    updateToggleButton();
+    loadData();
+  </script>
+</body>
+</html>
