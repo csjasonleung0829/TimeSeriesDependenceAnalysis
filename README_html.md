@@ -64,3 +64,29 @@ For non-cointegrated pairs, the app shows a label and keeps the correlation valu
 - `t_1/2`  
   Estimated half-life of mean reversion of the spread (in bars of the source timeframe).  
   Smaller values generally indicate faster reversion to the mean.
+
+## 5) Spread figure (interactive)
+
+When you click a row in the table, the app opens a spread figure for that selected pair.
+
+- **What is plotted**
+  
+  - The spread time series built from log prices:
+    `spread_t = log(asset1_t) - (α + β * log(asset2_t))`
+  - Here `asset1` is the symbol selected in the dropdown, and `asset2` is the clicked row.
+
+- **How pair direction is handled**
+  
+  - If `(asset1, asset2)` exists directly in `cointegrated_pairs.csv`, the app uses its `α, β`.
+  - If only `(asset2, asset1)` exists, the app transforms coefficients so the spread is still expressed in `asset1`-vs-`asset2` direction.
+
+- **Figure behavior**
+  
+  - Vector-based SVG rendering (not bitmap).
+  - Hover interaction shows crosshair, point marker, and tooltip.
+  - X-axis labels are adaptively thinned to reduce overlap.
+  - Y-axis is symmetric around zero, so `0` is always the center reference level.
+
+- **When spread is unavailable**
+  
+  - If the clicked pair is not cointegrated (no usable `α, β`), the app shows a message instead of drawing the spread curve.
