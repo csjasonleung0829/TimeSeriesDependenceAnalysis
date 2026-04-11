@@ -62,5 +62,9 @@ Getting started
 4. **Visualize outputs in the browser (optional)**
    
    - After generating `output/correlation_matrix.csv` and `output/cointegrated_pairs.csv`, follow `README_html.md` to launch and use the `index.html` visualization app.
+   
+   - Demo preview:
+     
+     ![HTML visualization demo](assets/demo.gif)
 
 The two workflows are designed to be complementary: you can use correlation analysis to understand cross-asset relationships at the return level, and cointegration analysis to identify deeper long-run equilibrium relationships suitable for market-neutral trading strategies.
