@@ -8,18 +8,18 @@ This repository contains a small toolkit for quantitative research on financial 
 
 The detailed usage instructions for each workflow are documented in separate, focused READMEs:
 
-- `README_correlation.md` — how to:
+- [README_correlation.md](./README_correlation.md) — how to:
   
   - download OHLC data from MT5 into `data/` via `fetch_ohlc_mt5.py`, and
   - compute pairwise, one-vs-all, and all-vs-all correlations with `correlation_analysis.py`.
 
-- `README_cointegration.md` — how to:
+- [README_cointegration.md](./README_cointegration.md) — how to:
   
   - collect a daily OHLC universe in `data/`,
   - screen assets for I(1) behaviour using `stationarity_check.py`, and
   - search for cointegrated pairs and construct spreads using `cointegration_pairs_scan.py`.
 
-- `README_html.md` — how to:
+- [README_html.md](./README_html.md) — how to:
   
   - start the local web server for `index.html`,
   - open the visualization app in a browser, and
@@ -36,9 +36,9 @@ At a high level, the project uses the following structure:
 - `cointegration_pairs_scan.py` — Engle–Granger pairwise cointegration search.
 - `data/` — raw OHLC data from MT5.
 - `output/` — analysis outputs (correlation tables, stationarity results, cointegrated pairs, etc.).
-- `README_correlation.md` — detailed correlation-analysis documentation.
-- `README_cointegration.md` — detailed cointegration-analysis documentation.
-- `README_html.md` — HTML data-visualization app usage guide.
+- [README_correlation.md](./README_correlation.md) — detailed correlation-analysis documentation.
+- [README_cointegration.md](./README_cointegration.md) — detailed cointegration-analysis documentation.
+- [README_html.md](./README_html.md) — HTML data-visualization app usage guide.
 
 Getting started
 ---------------
@@ -51,8 +51,8 @@ Getting started
 
 2. **Choose your workflow**
    
-   - For correlation-focused research (e.g. portfolio diversification, identifying negatively correlated assets), start with `README_correlation.md`.
-   - For cointegration and pairs trading (e.g. building mean-reverting spreads), start with `README_cointegration.md`.
+   - For correlation-focused research (e.g. portfolio diversification, identifying negatively correlated assets), start with [README_correlation.md](./README_correlation.md).
+   - For cointegration and pairs trading (e.g. building mean-reverting spreads), start with [README_cointegration.md](./README_cointegration.md).
 
 3. **Run the scripts as described**
    
@@ -61,7 +61,7 @@ Getting started
 
 4. **Visualize outputs in the browser (optional)**
    
-   - After generating `output/correlation_matrix.csv` and `output/cointegrated_pairs.csv`, follow `README_html.md` to launch and use the `index.html` visualization app.
+   - After generating `output/correlation_matrix.csv` and `output/cointegrated_pairs.csv`, follow [README_html.md](./README_html.md) to launch and use the `index.html` visualization app.
    
    - Demo preview:
      
